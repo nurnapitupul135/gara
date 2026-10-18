@@ -16,7 +16,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install only tools needed for download / verify / extract
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates wget tar coreutils \
+    ca-certificates wget tar coreutils python3 \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
