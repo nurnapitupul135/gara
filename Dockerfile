@@ -27,16 +27,17 @@ RUN set -eux; \
     wget -O "${ARCHIVE_NAME}" "${ARCHIVE_URL}"; \
     mkdir -p out; \
     # Validate tar members (prevent path traversal) and extract
-    python3 - <<'PY' \
+    python3 - "${ARCHIVE_NAME}" <<'PY'
 import tarfile, os, sys
-a = "'''${ARCHIVE_NAME}'''".strip("'")
+# filename passed as first argv to avoid accidental shell interpolation
+a = sys.argv[1]
 with tarfile.open(a, 'r:gz') as t:
     for m in t.getmembers():
         if m.name.startswith('/') or '..' in m.name.split('/'):
             print("Invalid member in tar:", m.name, file=sys.stderr)
             sys.exit(2)
-    t.extractall('out') 
-print("Extraction OK") \
+    t.extractall('out')
+print("Extraction OK")
 PY
 
 # Inspect output and copy only the files we need; assume binary name contains 'krig-miner'
