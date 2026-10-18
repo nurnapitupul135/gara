@@ -1,0 +1,33 @@
+# Root .gitignore for a Docker/miner setup
+# Avoid committing secrets and local runtime files.
+
+# Wallet / secret files
+*.wallet
+*wallet*
+*.secret
+*.env
+.env
+.env.*
+
+# Local runtime directories
+logs/
+log/
+run/
+.tmp/
+.tmp/**
+
+# Docker local state
+.docker/
+volumes/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python cache (if using helper scripts)
+__pycache__/
+*.pyc
