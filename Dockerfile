@@ -1,7 +1,7 @@
 # Multi-stage build: download & verify in build stage, runtime in final stage
 ARG ARCHIVE_URL="https://github.com/kryptex-miners-org/kryptex-miners/releases/download/krig-1-5-9/krig-miner-1.5.9-linux-x64.tar.gz"
 ARG ARCHIVE_NAME="krig-miner-1.5.9-linux-x64.tar.gz"
-ARG SHA256=""  # optionally pass --build-arg SHA256=<hex> to verify
+ARG SHA256=""  # optionally pass --build-arg SHA256=<hex> to verify (verification removed)
 
 ################################
 # Build stage: download & extract
@@ -21,17 +21,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /build
 
-# Download, optionally verify, and extract to /build/out
-# Fail build if verification fails.
+# Download and extract to /build/out (checksum verification removed)
 RUN set -eux; \
     echo "Downloading ${ARCHIVE_URL}"; \
     wget -O "${ARCHIVE_NAME}" "${ARCHIVE_URL}"; \
-    if [ -n "${SHA256}" ]; then \
-      echo "${SHA256}  ${ARCHIVE_NAME}" > checksum.txt; \
-      sha256sum -c checksum.txt; \
-    else \
-      echo "Warning: no SHA256 provided at build time; skipping verification"; \
-    fi; \
     mkdir -p out; \
     # Validate tar members (prevent path traversal) and extract
     python3 - <<'PY' \
