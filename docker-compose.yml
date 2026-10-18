@@ -1,0 +1,19 @@
+version: "3.8"
+services:
+  krig:
+    image: krig:1.5.9
+    container_name: krig
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /run:rw,noexec,nosuid,size=8m
+    volumes:
+      - /path/on/host/krig_wallet.txt:/run/secrets/wallet:ro
+    environment:
+      - WALLET_FILE=/run/secrets/wallet
+      - POOL_URL=stratum+ssl://prl-sg.kryptex.network:8048
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
