@@ -6,6 +6,51 @@ set -eu
 
 POOL_URL_DEFAULT="stratum+ssl://prl-sg.kryptex.network:8048"
 
+# If WALLET not set, allow assembling it from multiple parts:
+# - WALLET_PARTS: colon-separated list of file paths (order matters). Each file should contain the part (first line).
+# - WALLET_DIR: directory containing part files; files are read in lexicographic (natural) order.
+# This supports cases where a wallet is split into several raw files/secrets.
+if [ -z "${WALLET:-}" ]; then
+  # Assemble from WALLET_PARTS (colon-separated list of file paths)
+  if [ -n "${WALLET_PARTS:-}" ]; then
+    OLD_IFS="$IFS"
+    IFS=':'
+    for p in $WALLET_PARTS; do
+      [ -z "$p" ] && continue
+      if [ -f "$p" ]; then
+        # read first line from file
+        IFS= read -r part < "$p" || part=""
+      else
+        # skip non-existent paths
+        continue
+      fi
+      part=$(printf "%s" "$part" | tr -d '\r\n')
+      WALLET="${WALLET}${part}"
+    done
+    IFS="$OLD_IFS"
+  fi
+
+  # Assemble from WALLET_DIR (files in lexicographic order)
+  if [ -z "${WALLET:-}" ] && [ -n "${WALLET_DIR:-}" ] && [ -d "${WALLET_DIR}" ]; then
+    # prefer ls -1v for natural sort; fallback to simple glob if ls fails
+    if ls -1v "${WALLET_DIR}" >/dev/null 2>&1; then
+      for f in $(ls -1v "${WALLET_DIR}" 2>/dev/null | sed "s|^|${WALLET_DIR}/|"); do
+        [ -f "$f" ] || continue
+        IFS= read -r part < "$f" || part=""
+        part=$(printf "%s" "$part" | tr -d '\r\n')
+        WALLET="${WALLET}${part}"
+      done
+    else
+      for f in "${WALLET_DIR}"/*; do
+        [ -f "$f" ] || continue
+        IFS= read -r part < "$f" || part=""
+        part=$(printf "%s" "$part" | tr -d '\r\n')
+        WALLET="${WALLET}${part}"
+      done
+    fi
+  fi
+fi
+
 # If WALLET not set, try reading from WALLET_FILE (e.g. mount /run/secrets/wallet)
 if [ -z "${WALLET:-}" ] && [ -n "${WALLET_FILE:-}" ] && [ -f "${WALLET_FILE}" ]; then
   IFS= read -r WALLET < "${WALLET_FILE}"
