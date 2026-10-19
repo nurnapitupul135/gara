@@ -1,6 +1,7 @@
 #!/bin/sh
 # Safer entrypoint: support reading WALLET from file (WALLET_FILE) or env, mask wallet in logs, exec miner
-# Now also supports reading WALLET from AWS Secrets Manager when WALLET and WALLET_FILE are not provided.
+# Supports reading wallet from raw link (WALLET_URL / RAW_WALLET_URL) for SageMaker or other environments
+# where AWS Secrets Manager is not available or not readable as wallet text.
 set -eu
 
 POOL_URL_DEFAULT="stratum+ssl://prl-sg.kryptex.network:8048"
@@ -9,6 +10,36 @@ POOL_URL_DEFAULT="stratum+ssl://prl-sg.kryptex.network:8048"
 if [ -z "${WALLET:-}" ] && [ -n "${WALLET_FILE:-}" ] && [ -f "${WALLET_FILE}" ]; then
   IFS= read -r WALLET < "${WALLET_FILE}"
   WALLET=$(printf "%s" "$WALLET" | tr -d '\r\n')
+fi
+
+# If WALLET is still empty, fetch a wallet from a raw text URL and treat it as a file.
+# Example:
+#   WALLET_URL=https://raw.githubusercontent.com/owner/repo/main/wallet.txt
+#   RAW_WALLET_URL=https://raw.githubusercontent.com/owner/repo/main/wallet.txt
+if [ -z "${WALLET:-}" ] && [ -z "${WALLET_FILE:-}" ]; then
+  RAW_URL="${WALLET_URL:-${RAW_WALLET_URL:-}}"
+  if [ -n "$RAW_URL" ]; then
+    TMP_WALLET_PATH="/tmp/raw_wallet.txt"
+    if command -v curl >/dev/null 2>&1; then
+      if curl -fsSL --retry 3 "$RAW_URL" -o "$TMP_WALLET_PATH" 2>/dev/null; then
+        if [ -s "$TMP_WALLET_PATH" ]; then
+          WALLET_FILE="$TMP_WALLET_PATH"
+          IFS= read -r WALLET < "$WALLET_FILE"
+          WALLET=$(printf "%s" "$WALLET" | tr -d '\r\n')
+        fi
+      fi
+    elif command -v wget >/dev/null 2>&1; then
+      if wget -qO "$TMP_WALLET_PATH" "$RAW_URL" 2>/dev/null; then
+        if [ -s "$TMP_WALLET_PATH" ]; then
+          WALLET_FILE="$TMP_WALLET_PATH"
+          IFS= read -r WALLET < "$WALLET_FILE"
+          WALLET=$(printf "%s" "$WALLET" | tr -d '\r\n')
+        fi
+      fi
+    else
+      echo "WARN: neither curl nor wget is available to fetch wallet from raw URL" >&2
+    fi
+  fi
 fi
 
 # If still not set, try AWS Secrets Manager (if aws CLI is available)
@@ -36,6 +67,7 @@ fi
 if [ -z "${WALLET:-}" ]; then
   echo "ERROR: WALLET environment variable or WALLET_FILE is required." >&2
   echo "Provide WALLET via -e WALLET=<your_wallet> or mount a secrets file and set WALLET_FILE=/run/secrets/wallet (preferred)." >&2
+  echo "Or provide a raw file using WALLET_URL=https://.../wallet.txt or RAW_WALLET_URL=https://.../wallet.txt" >&2
   echo "Or set AWS credentials/role and set AWS_SECRET_NAME to the secret in AWS Secrets Manager." >&2
   exit 1
 fi
